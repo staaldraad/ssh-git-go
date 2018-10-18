@@ -43,9 +43,9 @@ func main() {
 
 	config.AddHostKey(private)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", portPtr))
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *portPtr))
 	if err != nil {
-		log.Fatalf("Failed to listen on %d (%s)", portPtr, err)
+		log.Fatalf("Failed to listen on %d (%s)", *portPtr, err)
 	}
 
 	for {
