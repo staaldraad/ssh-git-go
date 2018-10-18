@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,37 +14,44 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var reposLocation = "/tmp/repos"
+var reposLocation string
 
 func main() {
-	port := 2221
+	portPtr := flag.Int("p", 2221, "Port to use")
+	dirPtr := flag.String("d", "./repos", "The directory where the git repositories are")
+	hostkeyPtr := flag.String("s", "./id_rsa", "Where to find the host-key")
+
+	flag.Parse()
+
+	reposLocation = *dirPtr
 
 	config := &ssh.ServerConfig{
 		//Explicitely set "none" auth as valid. This is wanted to allow anonymous SSH
 		NoClientAuth: true,
 	}
 
-	privateBytes, err := ioutil.ReadFile("./id_rsa")
+	privateBytes, err := ioutil.ReadFile(*hostkeyPtr)
 	if err != nil {
-		log.Fatal("Failed to load private key (./id_rsa)")
+		log.Printf("If you need to generate a host key, use: ssh-keygen -t rsa")
+		log.Fatalf("Failed to load private key %s (%q)", *hostkeyPtr, err)
 	}
 
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		log.Fatal("Failed to parse private key")
+		log.Fatalf("Failed to parse private key: %q", err)
 	}
 
 	config.AddHostKey(private)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", portPtr))
 	if err != nil {
-		log.Fatalf("Failed to listen on 2200 (%s)", err)
+		log.Fatalf("Failed to listen on %d (%s)", portPtr, err)
 	}
 
 	for {
 		tcpConn, err := listener.Accept()
 		if err != nil {
-			log.Printf("Failed to accept incoming connection (%s)", err)
+			log.Printf("Failed to accept incoming connection (%q)", err)
 			continue
 		}
 		// Before use, a handshake must be performed on the incoming net.Conn.
