@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -19,12 +20,21 @@ var reposLocation string
 func main() {
 	portPtr := flag.Int("p", 2221, "Port to use")
 	dirPtr := flag.String("d", "./repos", "The directory where the git repositories are")
+	interfacePtr := flag.String("i", "0.0.0.0", "The interface to listen on")
 	hostkeyPtr := flag.String("s", "./id_rsa", "Where to find the host-key")
 
 	flag.Parse()
 
 	reposLocation = *dirPtr
+	if strings.HasPrefix(reposLocation, "./") {
+		wd, _ := os.Getwd()
+		reposLocation = fmt.Sprintf("%s/%s", wd, strings.TrimPrefix(reposLocation, "./"))
+	}
 
+	// check that the supplied repos directory actually exists
+	if _, err := os.Stat(reposLocation); err != nil {
+		log.Fatalf("Couldn't access supplied git directory: %q", err)
+	}
 	config := &ssh.ServerConfig{
 		//Explicitely set "none" auth as valid. This is wanted to allow anonymous SSH
 		NoClientAuth: true,
@@ -43,10 +53,13 @@ func main() {
 
 	config.AddHostKey(private)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *portPtr))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *interfacePtr, *portPtr))
 	if err != nil {
 		log.Fatalf("Failed to listen on %d (%s)", *portPtr, err)
 	}
+
+	log.Printf("New listener started on %s:%d", *interfacePtr, *portPtr)
+	log.Printf("Serving repositories found in %s", reposLocation)
 
 	for {
 		tcpConn, err := listener.Accept()
