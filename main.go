@@ -35,6 +35,7 @@ func main() {
 	if _, err := os.Stat(reposLocation); err != nil {
 		log.Fatalf("Couldn't access supplied git directory: %q", err)
 	}
+
 	config := &ssh.ServerConfig{
 		//Explicitely set "none" auth as valid. This is wanted to allow anonymous SSH
 		NoClientAuth: true,
@@ -140,7 +141,6 @@ type exitStatusMsg struct {
 }
 
 func handleExecChannel(channel ssh.Channel, req *ssh.Request) {
-	fmt.Println("exec")
 
 	var msg execRequestMsg
 	ssh.Unmarshal(req.Payload, &msg)
@@ -165,9 +165,14 @@ func handleExecChannel(channel ssh.Channel, req *ssh.Request) {
 		fullPath := path.Join(reposLocation, p)
 		log.Printf("Requesting repo: %s\n", fullPath)
 
-		res := doExec(channel, channel, channel.Stderr(), fullPath)
-
-		channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatusMsg{res}))
+		// check that fullPath exists
+		if _, err := os.Stat(fullPath); err != nil {
+			log.Printf("Couldn't access requested git directory: %q", err)
+			channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatusMsg{1}))
+		} else {
+			res := doExec(channel, channel, channel.Stderr(), fullPath)
+			channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatusMsg{res}))
+		}
 	}
 }
 
